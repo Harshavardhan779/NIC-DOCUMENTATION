@@ -1,0 +1,864 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}</style><style>:root{color-scheme:light dark;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}}:root[data-theme="dark"]{color-scheme:dark;--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}:root[data-theme="light"]{color-scheme:light}@media print{:root,:root[data-theme="dark"]{color-scheme:light;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}}body{background:var(--md-bg);color:var(--md-text);max-width:720px;margin:0 auto;padding:32px;display:flex;flex-direction:column;gap:10px;font:14px/1.55 -apple-system,BlinkMacSystemFont,'SF Pro','Segoe UI',sans-serif;overflow-wrap:break-word}body>:first-child{margin-top:0}h1,h2,h3,h4,h5,h6{margin:6px 0 0;line-height:1.25;font-weight:600;text-wrap:balance}h1{font-size:1.35em}h2{font-size:1.15em;color:var(--md-muted)}h3,h4,h5,h6{font-size:1em}p,ul,ol,blockquote,table,pre,hr{margin:0}strong{font-weight:600}a{color:var(--md-link);text-decoration:none}a:hover{text-decoration:underline}ul,ol{display:flex;flex-direction:column;gap:6px;padding-left:22px}ul{list-style:disc}ol{list-style:decimal}:is(li,td,th)>*+:is(p,ul,ol,blockquote){margin-top:6px}blockquote{display:flex;flex-direction:column;gap:10px;border-left:2px solid var(--md-rule);padding-left:10px;color:var(--md-muted)}:not(pre)>code{background:var(--md-fill);padding:1px 3px;border-radius:4px;font:.92em 'SF Mono',ui-monospace,Menlo,Consolas,monospace}a>code{background:none;color:inherit}pre{background:var(--md-fill);padding:10px 12px;border-radius:6px;overflow-x:auto;font:12px/1.5 'SF Mono',ui-monospace,Menlo,Consolas,monospace;margin-block:4px}pre code{background:none;padding:0;font:inherit}table{width:100%;border-collapse:separate;border-spacing:2px;font:inherit}th,td{padding:6px 8px;border-radius:3px;text-align:left;vertical-align:top}th{background:var(--md-fill-strong);font-weight:600}td{background:var(--md-fill)}:is(th,td) :not(pre)>code{background:transparent}hr{border:0;border-top:1px solid var(--md-rule-strong);margin-block:10px}img{max-width:100%;height:auto;border-radius:4px}</style>
+</head><body>
+<h1>PREMIA Support Intelligence Platform — Independent Product &amp; Architecture Proposal</h1>
+<p><em>An AI-assisted, evidence-governed root-cause-analysis product for PREMIA / Oracle-based insurance estates.</em></p>
+<p><strong>Document status:</strong> Proposal for comparison against an alternative architecture
+<strong>Author role:</strong> Senior enterprise product / UX / systems architect
+<strong>Convention used throughout:</strong> claims are tagged as <strong>REQUIREMENT</strong>, <strong>DESIGN DECISION</strong>, <strong>ASSUMPTION</strong>, <strong>TRADE-OFF</strong>, or <strong>FUTURE OPTION</strong>.</p>
+<hr>
+<h2>1. Executive Summary</h2>
+<p>The product proposed here — working name <strong>Tracer</strong> — is an on-premise-first investigation platform that turns a Jira support ticket into an evidence-backed root-cause analysis of a PREMIA (Oracle Forms + PL/SQL + Oracle DB) estate, with a human expert in the loop at every consequential step.</p>
+<p>Five architectural pillars define the design, and everything else follows from them:</p>
+<ol>
+<li>
+<p><strong>Isolation by deployment, not by policy.</strong> Each customer runs their own self-contained deployment (&quot;cell&quot;) inside their own network. Customer source code, database metadata, and Jira content never leave the customer boundary. Multi-tenancy exists only in a thin, optional vendor control plane that carries licensing, product telemetry (opt-in), and software updates — never customer artifacts. This converts the hardest requirement (strict isolation of insurance source code and data) from an ongoing policy-enforcement problem into a structural property.</p>
+</li>
+<li>
+<p><strong>A deterministic Code Knowledge Graph (CKG) is the single source of truth.</strong> Forms, FMBs, PLLs, reports, PL/SQL, and database catalog metadata are parsed by deterministic pipelines into a typed graph of artifacts, symbols, and relationships stored in PostgreSQL. The LLM never reads the filesystem or the database directly; it can only call tools that query the CKG and return real, versioned, addressable evidence.</p>
+</li>
+<li>
+<p><strong>Evidence is a first-class data model, not a prose convention.</strong> Every finding in an RCA is a typed claim linked to evidence records (Observed / Derived / Hypothesis / Unresolved / Runtime-confirmed). A deterministic <strong>claim verifier</strong> checks every citation before anything is shown to a user; uncited claims are automatically downgraded to hypotheses and visually flagged. This is how &quot;the AI must not invent&quot; is enforced mechanically rather than by prompt-wishing.</p>
+</li>
+<li>
+<p><strong>A modular monolith with an async job plane.</strong> One deployable application (API + UI) plus a pool of workers sharing a job queue built on PostgreSQL. No Kubernetes requirement, no Kafka, no Neo4j. The scale envelope (tens of thousands of artifacts, thousands of tickets, tens of concurrent users, per customer) fits comfortably in this shape, and it is the only shape that support-team-sized customers can realistically operate on-premise.</p>
+</li>
+<li>
+<p><strong>Evaluation is built into the core schema from day one.</strong> Completed, SME-validated investigations <em>are</em> golden records. The pipeline is replayable stage-by-stage against them, so retrieval accuracy, RCA accuracy, and unsupported-claim rate become regression metrics rather than a bolted-on QA activity.</p>
+</li>
+</ol>
+<p>The MVP is deliberately narrow: one Jira connector, Forms-XML + PL/SQL + DB-catalog ingestion, hybrid retrieval, an agentic investigation with a bounded tool budget, the RCA workspace with the evidence ledger, and SME validation. Runtime verification, vector search, cross-ticket learning, and additional connectors are staged afterwards.</p>
+<hr>
+<h2>2. Problem Analysis</h2>
+<h3>2.1 What the problem actually is</h3>
+<p>Restated from first principles, the job is: <em>given an under-specified, noisy description of a failure (a ticket), locate the small set of code and data objects that explain the failure, and produce a defensible causal narrative connecting symptom to cause.</em></p>
+<p>Three properties of this domain shape everything:</p>
+<p><strong>The investigation is a graph traversal, not a text search.</strong> The path from &quot;user gets ORA-20101 on claim settlement screen&quot; to &quot;package <code>PKG_CLM_SETTLE.VALIDATE_LIMITS</code> reads a stale row in <code>CLM_COVER_LIMITS</code> because trigger <code>WHEN-VALIDATE-ITEM</code> on block <code>SETTLE_DTL</code> bypasses the refresh&quot; runs through explicit, machine-recoverable relationships: form → block → item → trigger → program unit → package → table. Humans traverse this graph slowly and from memory. A machine can traverse it precisely — <strong>if the graph exists</strong>. Therefore the core asset of the product is not the LLM; it is a correct, current, queryable dependency graph of the customer's estate. The LLM's job is to decide <em>which</em> traversals to run and to synthesize the result into a narrative.</p>
+<p><strong>The cost of a wrong answer is asymmetric.</strong> A support engineer who receives a confidently wrong RCA will spend hours disproving it and will stop trusting the tool after two or three such events. A tool that says &quot;here are the 4 relevant artifacts, 2 confirmed facts, and 1 hypothesis I could not confirm&quot; is more valuable than one that always produces a full narrative. This drives the evidence-ledger design and the decision to make &quot;Unresolved&quot; a first-class, prominently displayed outcome rather than a failure state.</p>
+<p><strong>PREMIA estates are heavily customized and version-fragmented.</strong> No two customers share a schema, form set, or vocabulary. So the product cannot ship with a hardcoded PREMIA model. It ships with (a) parsers for the <em>artifact formats</em> (which are stable Oracle formats: XML from frmf2xml, PL/SQL grammar, data dictionary views), and (b) a curated but <em>versioned and per-customer-overridable</em> domain knowledge base.</p>
+<h3>2.2 Why current practice fails</h3>
+<p>Investigation today is bottlenecked on a few SMEs whose value is precisely the mental dependency graph and error-code vocabulary they carry. Their knowledge is unindexed, unversioned, and leaves when they do. Junior engineers cannot even formulate the right <code>grep</code>. Screenshots — often the richest evidence in a ticket — are unusable to any text tooling.</p>
+<h3>2.3 Hidden requirements the statement implies but does not say</h3>
+<ul>
+<li><strong>Index freshness.</strong> Customers patch PREMIA and deploy customizations continuously. An RCA computed against last month's index is dangerous. → incremental re-indexing and <em>snapshot pinning</em> (every investigation records which index snapshot it ran against) are core requirements, not optimizations.</li>
+<li><strong>The FMB problem.</strong> FMB is a proprietary binary. <strong>ASSUMPTION A1:</strong> customers can run Oracle's <code>frmf2xml</code> (shipped with Forms builder) to produce Forms XML, or grant the indexer a host where it can be run. The product ingests XML; it treats FMB→XML conversion as a customer-side or agent-side step with a documented recipe. Same for PLL (→ PLD via converter) and RDF (→ XML via rwconverter). This assumption is called out because if false for a given customer, the ingestion adapter must fall back to partial extraction, which degrades but does not break the product.</li>
+<li><strong>Read-only is not automatic.</strong> &quot;Read-only runtime verification&quot; against a production Oracle DB requires an engineered guarantee (dedicated read-only account, statement allowlisting, resource limits), not a checkbox.</li>
+<li><strong>Jira write-back is desirable but risky.</strong> Posting RCA summaries back to Jira is a natural closing step but must be gated behind explicit human action.</li>
+</ul>
+<h3>2.4 Explicitly challenged assumptions</h3>
+<ul>
+<li><em>&quot;The AI should search the source code.&quot;</em> Challenged. The AI should search a <strong>derived, structured index</strong> of the source. Raw-text search over PL/SQL misses semantics (synonyms, package resolution) and floods context. Deterministic parsing first, AI reasoning second.</li>
+<li><em>&quot;One pipeline: ticket in, RCA out.&quot;</em> Challenged. A fully automatic pipeline optimizes for demo appeal, not trust. The proposed workflow is <strong>checkpointed</strong>: the engineer can inspect, correct, and steer at three defined gates (extraction review, scoping review, RCA review). Automation level is a per-customer dial.</li>
+<li><em>&quot;Graph problems need a graph database.&quot;</em> Challenged in §31/§59: at this scale, recursive CTEs over a properly indexed relational edge table outperform the operational cost of Neo4j on-premise.</li>
+<li><em>&quot;Enterprise ⇒ microservices.&quot;</em> Challenged in §29/§59.</li>
+</ul>
+<hr>
+<h2>3. Product Vision</h2>
+<p><strong>Vision statement:</strong> <em>Every PREMIA support ticket arrives at the engineer with its investigation already scaffolded — the relevant screens, code paths, and database objects located, the facts separated from the guesses, and the whole trail auditable — so that a two-year engineer with Tracer resolves what previously required a ten-year SME, and the SME's time is spent validating, not excavating.</em></p>
+<p>What the product is: an <strong>investigation workbench</strong> with an AI investigator inside it.
+What the product is not: an auto-resolver, a code-fix generator, or a chatbot over the codebase. (Chat exists, but as a scoped assistant inside an investigation, always grounded in the evidence ledger.)</p>
+<p>North-star metric: <strong>median time-to-validated-RCA</strong>. Supporting metrics: SME hours per ticket, first-pass artifact-retrieval accuracy, unsupported-claim rate (target: ~0 in validated RCAs).</p>
+<p>Product principles:</p>
+<ol>
+<li>Evidence before eloquence — no claim without a citation the user can click.</li>
+<li>Human gates at consequential steps — AI drafts, humans decide.</li>
+<li>The customer's data never leaves the customer — structurally, not contractually.</li>
+<li>Deterministic where possible, probabilistic only where necessary.</li>
+<li>Every investigation makes the product measurably better (golden data flywheel).</li>
+</ol>
+<hr>
+<h2>4. Target Users</h2>
+<p>The role model is deliberately smaller than the ten personas listed in the brief. <strong>DESIGN DECISION:</strong> collapse to six product roles with capability flags, because fine-grained role proliferation in enterprise tools produces administration burden without security benefit. L1/L2/Developer/DBA differ in <em>skill</em>, not in what the product should let them do; they share the &quot;Investigator&quot; role with optional capability grants.</p>
+<table>
+<thead>
+<tr>
+<th>Product role</th>
+<th>Maps to brief's users</th>
+<th>Core rights</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Viewer</strong></td>
+<td>Viewer, auditors, managers</td>
+<td>Read investigations, dashboards. No source view unless granted.</td>
+</tr>
+<tr>
+<td><strong>Investigator</strong></td>
+<td>Support Engineer, L1, L2, Developer, DBA</td>
+<td>Run investigations, explore code/DB index, draft RCAs. Capability flags: <code>runtime.request</code>, <code>source.view</code>, <code>db.explore</code>.</td>
+</tr>
+<tr>
+<td><strong>Validator (SME)</strong></td>
+<td>PREMIA SME</td>
+<td>Everything Investigator has + approve/reject RCAs, edit knowledge base, approve runtime probe requests, promote golden records.</td>
+</tr>
+<tr>
+<td><strong>Customer Admin</strong></td>
+<td>Customer Administrator</td>
+<td>Manage users/roles within their customer, environments, connections, secrets references, indexing schedules, automation-level dial. No RCA content requirement — content access is a separate grant.</td>
+</tr>
+<tr>
+<td><strong>Evaluation User</strong></td>
+<td>QA/Evaluation</td>
+<td>Golden dataset curation, run eval suites, view metrics. Read-only elsewhere.</td>
+</tr>
+<tr>
+<td><strong>Platform Admin</strong></td>
+<td>Platform Administrator</td>
+<td>Deployment health, upgrades, licensing, global audit. <strong>Cannot read investigation content by default</strong> (break-glass with audit for support cases).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>DESIGN DECISION — admin/content separation:</strong> administrators of the system are not automatically readers of investigation content or source code. Insurance customers routinely require this separation; retrofitting it is painful, so it is in the permission model from day one.</p>
+<hr>
+<h2>5. User Personas</h2>
+<p><strong>Priya — L2 Support Engineer (primary persona).</strong> 3 years on the account, comfortable with SQL, shaky on Forms internals. Receives 5–10 tickets/day; 2 of them require code investigation she can't complete alone. Success for Priya: she opens the ticket in Tracer, confirms the extracted identifiers, watches the investigation land on a form trigger and a package, reads the two cited code snippets, agrees with the confirmed chain, and escalates only the one hypothesis the system marked unconfirmed. Her fear: being handed a confident hallucination and burning a day on it — hence the evidence ledger is <em>her</em> feature.</p>
+<p><strong>Rafael — PREMIA SME / Validator.</strong> 14 years of PREMIA. Currently interrupted hourly. Success for Rafael: his queue shows RCAs pre-assembled with clickable evidence; validation takes 10 minutes instead of a 2-hour excavation; his corrections (rejecting a finding, annotating an error code) are captured into the knowledge base so the same mistake doesn't recur. His fear: the tool becoming a source of authority that outranks him — hence validation verdicts are the terminal authority in the data model and in the evaluation ground truth.</p>
+<p><strong>Anita — Customer Admin at the insurer.</strong> Owns the DEV/TEST/UAT/PROD environment definitions, the read-only Oracle accounts, the Jira service credentials, and the security review. Success: onboarding is a guided checklist she can hand to her DBA and Jira admin, secrets live in <em>her</em> vault, and she can produce an audit export for her CISO showing exactly which queries ever touched PROD. Her fear: the product phoning home with source code — hence the deployment model and the egress-audit page exist for her.</p>
+<p><strong>Marek — Platform/Delivery engineer at the vendor.</strong> Operates 15 customer cells he mostly cannot look inside. Success: health telemetry (opt-in, content-free), one-command upgrades, and eval-suite results per customer that tell him whether an upgrade regressed retrieval quality <em>before</em> the customer notices.</p>
+<p>Secondary personas — a Viewer (support manager tracking backlog and MTTR) and an Evaluation user (curates golden tickets, watches unsupported-claim rate across releases) — are served by the dashboard and evaluation surfaces respectively.</p>
+<hr>
+<h2>6. Core User Journeys</h2>
+<h3>Journey 1 — Investigate a ticket (the spine of the product)</h3>
+<ol>
+<li>Priya opens Tracer; the <strong>Ticket Inbox</strong> shows Jira tickets synced from configured projects. She opens INS-4821 (&quot;Settlement fails with ORA-20144 for co-insurance claims&quot;).</li>
+<li>The <strong>Ticket Workspace</strong> already shows: parsed description, comment timeline, two screenshots with OCR overlays, and an <strong>Extraction panel</strong>: error code ORA-20144, claim number pattern, form name <code>CLMSETTLE</code> (recognized from a screenshot's window title), business concept &quot;co-insurance&quot;.</li>
+<li><strong>Gate 1 — extraction review</strong> (skippable per automation dial): Priya corrects one misread identifier, confirms.</li>
+<li>She clicks <strong>Start Investigation</strong>. A progress rail shows deterministic stages (candidate artifact retrieval → dependency expansion) then the agentic stage, streaming which tools the investigator is calling (&quot;Reading trigger WHEN-VALIDATE-ITEM on SETTLE_DTL… tracing call to PKG_CLM_SETTLE…&quot;). Long-running; she can leave and be notified.</li>
+<li><strong>Gate 2 — scoping review</strong> (optional, on by default for new customers): the system presents the candidate artifact set (&quot;this form, these 3 packages, these 5 tables — investigate?&quot;) before spending deep-analysis budget. Priya can pin or remove artifacts.</li>
+<li>The <strong>RCA Workspace</strong> opens: causal chain visualization, findings list with evidence-class badges, source snippets with exact line citations, DB objects involved, one Unresolved item (&quot;could not confirm value of <code>COINS_APPLICABLE</code> flag for this claim — runtime probe available&quot;).</li>
+<li>Priya requests the runtime probe (a templated read-only query against UAT). It requires no approval in UAT per policy; result attaches as Runtime-confirmed evidence and flips the hypothesis to confirmed.</li>
+<li>She edits the draft resolution note and clicks <strong>Submit for validation</strong>.</li>
+<li>Rafael reviews in the <strong>Validation queue</strong>, opens each cited snippet, confirms two findings, rejects a third with a note (&quot;this branch is dead in v11 — see patch 11.2.4&quot;), and validates the RCA. His rejection auto-creates a knowledge-base suggestion.</li>
+<li>Priya posts the sanitized summary back to Jira with one click (explicit action, previewed). The investigation is sealed as a historical record and flagged as a golden-candidate.</li>
+</ol>
+<h3>Journey 2 — Onboard an environment (Anita)</h3>
+<p>Guided checklist: create environment → register Oracle read-only account (vault reference) → connectivity test → point indexer at Forms-XML/PLL/RDF paths (or install the site agent that runs conversions) → run first index → review index health report (parse coverage %, unresolved references) → connect Jira project → dry-run extraction on 5 sample tickets → go live. Target: one working day with DBA and Jira admin available.</p>
+<h3>Journey 3 — Explore without a ticket (Developer/DBA)</h3>
+<p>Direct entry into Form Explorer / DB Explorer for ad-hoc questions (&quot;what writes to <code>POL_PREMIUM_DTL</code>?&quot;), no investigation object needed. This journey is why explorers are standalone surfaces, not just RCA sub-views.</p>
+<h3>Journey 4 — Evaluate a release (Evaluation user + Marek)</h3>
+<p>Select golden set → replay pipeline stages against pinned snapshots → compare metrics vs. baseline → publish report → gate the upgrade.</p>
+<hr>
+<h2>7. End-to-End Workflow</h2>
+<p>The brief's linear workflow is redesigned into a <strong>checkpointed pipeline with two loops</strong>:</p>
+<pre><code>            ┌────────────────────────────────────────────────────┐
+            │                 KNOWLEDGE LOOP (continuous)         │
+            │  Artifact ingestion → parsing → CKG build →        │
+            │  incremental re-index → snapshot versions          │
+            └────────────────────────────────────────────────────┘
+                                   │ (queried by)
+ Jira sync → Ticket Workspace → Extraction ──[Gate 1: human confirm*]──▶
+   Candidate Retrieval (deterministic, hybrid) ──[Gate 2: scope confirm*]──▶
+   Agentic Investigation (LLM + CKG tools, bounded budget) ──▶
+   Claim Verification (deterministic) ──▶ RCA Draft ──▶
+   [optional Runtime Probes — approval-gated] ──▶
+   Engineer Review ──[Gate 3]──▶ SME Validation ──▶
+   Seal + Jira write-back* + Golden-candidate flag
+            └──────── validation feedback → knowledge base / eval set ────┘
+</code></pre>
+<p>* = configurable per customer/environment (the <strong>automation dial</strong>: Assisted / Checkpointed / Autonomous-draft).</p>
+<p>Differences from the brief's workflow, and why:</p>
+<ul>
+<li><strong>Indexing is decoupled from investigation.</strong> The brief's flow implies analysis happens per-ticket. Parsing a large estate per ticket is unaffordable; the CKG is built continuously and investigations query it. Per-ticket work touches only artifacts not yet indexed at the required depth.</li>
+<li><strong>Two human gates before the expensive step, one after.</strong> Cheap human confirmation early (10 seconds to fix a misextracted claim number) saves large amounts of wasted deep analysis and is the main lever on RCA accuracy.</li>
+<li><strong>Claim verification is a separate deterministic stage</strong>, not part of &quot;the AI step&quot;. It runs after every agentic output, unconditionally.</li>
+<li><strong>Runtime probes are pull, not push.</strong> The investigator may <em>propose</em> probes; execution requires a human request (and, in protected environments, a second-person approval).</li>
+<li><strong>Sealing.</strong> Validation seals the investigation immutably (append-only afterwards), which is what makes it usable for audit and as golden data.</li>
+</ul>
+<hr>
+<h2>8. Product Information Architecture</h2>
+<p>Top-level information objects and their containment:</p>
+<pre><code>Customer (= deployment cell)
+ └── Environment (DEV/TEST/UAT/PROD…)            ← isolation + config unit
+      ├── Connections (Oracle, Jira, artifact sources, LLM endpoint)
+      ├── Index Snapshots (versioned CKG builds)
+      │    └── Artifacts → Symbols → Edges → Source spans
+      ├── Knowledge Base (base PREMIA KB version + customer overlay)
+      ├── Tickets (synced Jira mirror + extraction results)
+      ├── Investigations
+      │    ├── Evidence Ledger (typed evidence records)
+      │    ├── Findings / Claims (cite evidence)
+      │    ├── Hypotheses / Unresolved items
+      │    ├── Runtime Probe requests + results
+      │    └── Review &amp; Validation records
+      ├── Golden Records / Eval Runs
+      └── Audit Log (append-only)
+</code></pre>
+<p>Key IA rules: an Investigation is pinned to exactly one Environment and one Index Snapshot. Tickets can spawn multiple investigations (re-investigation after re-index). Evidence records are immutable; findings reference them, never copy them. The Knowledge Base is layered: vendor-shipped base (per PREMIA version) + customer overlay; overlays win.</p>
+<h2>9. Application Navigation</h2>
+<p>Left global rail (role-filtered):</p>
+<ol>
+<li><strong>Home / My Queue</strong> — assigned tickets, investigations awaiting my action, validation queue (SMEs).</li>
+<li><strong>Tickets</strong> — inbox, filters, sync status.</li>
+<li><strong>Investigations</strong> — list, states (Extracting, Scoping, Investigating, Draft, In Review, Validated, Sealed, Failed).</li>
+<li><strong>Explore</strong> — Form Explorer, Source Explorer, Dependency Explorer, Database Explorer (tabs of one exploration surface sharing a context stack).</li>
+<li><strong>Knowledge</strong> — error-code registry, domain concepts, playbooks, customer overlay editor (SME+).</li>
+<li><strong>Evaluation</strong> — golden set, eval runs, metric trends (Eval role).</li>
+<li><strong>Admin</strong> — environments, connections, indexing, users, automation dial, audit (Customer Admin).</li>
+</ol>
+<p>A persistent <strong>environment switcher</strong> in the header scopes everything; PROD is visually distinct (red-tinted chrome) to prevent &quot;wrong environment&quot; errors. A global omnisearch (⌘K) searches tickets, artifacts, symbols, DB objects, knowledge — scoped to the active environment.</p>
+<h2>10. Screen Inventory</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Screen</th>
+<th>Primary role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Home / My Queue</td>
+<td>All</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Ticket Inbox</td>
+<td>Investigator</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Ticket Workspace (detail + extraction)</td>
+<td>Investigator</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Investigation Progress (live pipeline view)</td>
+<td>Investigator</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Scoping Review (Gate 2)</td>
+<td>Investigator</td>
+</tr>
+<tr>
+<td>6</td>
+<td>RCA Workspace</td>
+<td>Investigator, Validator</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Evidence Detail (drawer/full)</td>
+<td>All with grant</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Runtime Probe Console (request/approve/result)</td>
+<td>Investigator, Validator</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Validation Queue + Validation view</td>
+<td>Validator</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Form Explorer</td>
+<td>Investigator+</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Source Explorer (code viewer)</td>
+<td>Investigator+ (<code>source.view</code>)</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Dependency Explorer (graph)</td>
+<td>Investigator+</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Database Explorer</td>
+<td>Investigator+ (<code>db.explore</code>)</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Knowledge Base (browse/edit/suggestions)</td>
+<td>SME</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Golden Dataset Manager</td>
+<td>Eval</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Eval Run + Metrics Dashboard</td>
+<td>Eval, Platform Admin</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Onboarding Wizard</td>
+<td>Customer Admin</td>
+</tr>
+<tr>
+<td>18</td>
+<td>Environment &amp; Connections Admin</td>
+<td>Customer Admin</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Indexing Console (snapshots, health, coverage)</td>
+<td>Customer Admin</td>
+</tr>
+<tr>
+<td>20</td>
+<td>Users &amp; Roles</td>
+<td>Customer Admin</td>
+</tr>
+<tr>
+<td>21</td>
+<td>Audit Explorer / export</td>
+<td>Customer Admin, Platform Admin</td>
+</tr>
+<tr>
+<td>22</td>
+<td>Ops Dashboard (jobs, queues, LLM usage, health)</td>
+<td>Platform Admin</td>
+</tr>
+</tbody>
+</table>
+<h2>11. Detailed UX for Major Screens</h2>
+<p><strong>Ticket Workspace.</strong> Three-pane layout. Left: ticket source of truth — description, comment timeline, history, attachments; screenshots open with an OCR overlay where recognized regions (window titles, error dialogs, field labels) are highlighted and clickable. Center: <strong>Extraction panel</strong> — two columns, <em>Technical identifiers</em> (error codes, form/block/item/trigger/package names, policy/claim/reference numbers) and <em>Business context</em> (symptom summary, operation attempted, product line). Every extracted item shows provenance (which sentence/screenshot region it came from — click to highlight) and a confidence chip; items resolved against the CKG get a green &quot;exists in index&quot; tick, unresolved ones an amber &quot;not found in index&quot; flag (a powerful early signal: a form name that doesn't exist in this customer's estate usually means wrong environment or misread screenshot). Users edit/add/remove chips. Right: actions + related tickets (same error code / same artifacts historically). Primary CTA: <em>Start Investigation</em> with automation-dial summary.</p>
+<p><strong>Investigation Progress.</strong> A vertical stage rail (Extraction ✓ → Retrieval ✓ → Scoping ▸ → Deep analysis → Verification → Draft) with, for the agentic stage, a <strong>live tool-call log</strong> in plain language. This transparency is deliberate UX: watching the investigator &quot;read trigger X, follow call to Y&quot; builds calibrated trust and teaches junior engineers the estate. Cancellable; resumable.</p>
+<p><strong>RCA Workspace — the flagship screen.</strong> Header: ticket link, environment + snapshot badge, state, confidence summary (&quot;3 confirmed findings · 1 hypothesis · 1 unresolved&quot;). Body, three panes:</p>
+<ul>
+<li><em>Left — Causal chain</em>: vertical chain Symptom → Entry point (form/item/trigger) → Propagation (calls) → Root cause → Affected data, each node an artifact chip; clicking scopes the other panes.</li>
+<li><em>Center — Findings</em>: ordered claim cards. Each card: claim text, <strong>evidence-class badge</strong> (color-coded: Observed=blue, Derived=teal, Runtime-confirmed=green, Hypothesis=amber, Unresolved=grey), inline citations rendered as chips <code>[PKG_CLM_SETTLE.VALIDATE_LIMITS:212-238]</code> that expand the exact source span in place. A card with zero verifiable citations <em>cannot</em> display as anything but Hypothesis — the renderer enforces it. Buttons: agree / dispute / annotate.</li>
+<li><em>Right — Evidence Ledger</em>: filterable table of all evidence records (type, source, snapshot, hash, added-by human/agent), plus Unresolved items each with a suggested next step (often a proposed runtime probe), plus the runtime evidence section.
+Footer: draft resolution editor, Submit for validation, and (post-validation) <em>Post summary to Jira</em> with mandatory preview.</li>
+</ul>
+<p><strong>Validation view (SME).</strong> Same RCA workspace plus a verdict bar per finding (Confirm / Reject / Amend, note required on reject), an overall verdict (Validated / Returned / Rejected), a diff view if the RCA was amended after engineer review, and a &quot;promote to golden&quot; toggle. Rejections prompt an optional structured knowledge suggestion (&quot;error ORA-20144 relates to co-insurance limit validation, not reinsurance&quot;) that lands in the KB suggestion queue.</p>
+<p><strong>Explorers</strong> — see §14–§17.</p>
+<p><strong>Onboarding Wizard</strong> — see §21.</p>
+<h2>12. Jira Workspace (integration design)</h2>
+<ul>
+<li><strong>Sync model:</strong> pull-based incremental sync (JQL on <code>updated &gt;=</code> watermark) per configured project; webhooks are a <strong>FUTURE OPTION</strong> (many enterprise Jira instances won't open inbound webhooks to an internal tool anyway; polling every 1–5 min is sufficient and firewall-friendly). Tracer keeps a <strong>read-mostly mirror</strong> (issue, comments, changelog, attachment binaries) so investigations remain stable even if Jira is slow/unavailable and so extraction runs on local data.</li>
+<li><strong>Attachment handling:</strong> binaries stored in the cell's object store; images queued for OCR; PDFs/logs text-extracted; size limits and type allowlist per admin config.</li>
+<li><strong>Write-back:</strong> exactly two write operations, both explicit-human-triggered — post RCA summary comment; transition/link issue (optional, off by default). No silent writes ever.</li>
+<li><strong>Adapter boundary:</strong> the rest of the product consumes a normalized <code>Ticket</code> model (see §46), so ServiceNow or Azure DevOps connectors are additive.</li>
+<li><strong>Related tickets:</strong> computed locally over the mirror (shared error codes, shared artifacts from past investigations, text similarity) — not via Jira's own linking, which is unreliable.</li>
+</ul>
+<h2>13. Ticket Intelligence (extraction architecture)</h2>
+<p><strong>DESIGN DECISION — deterministic-first, LLM-second, human-gated:</strong></p>
+<ol>
+<li><strong>Deterministic extractors</strong> run first: regex/dictionary passes for ORA-/FRM-/REP- codes, PREMIA error-code registry lookups, policy/claim/reference number patterns (per-customer configurable regexes — numbering schemes differ by insurer), and — critically — <strong>dictionary matching against the customer's own CKG symbol table</strong> (form, block, item, trigger, package, table names). Matching against the actual estate rather than generic NER is both more precise and inherently customer-specific.</li>
+<li><strong>OCR</strong> (local engine, e.g., Tesseract-class; <strong>FUTURE OPTION:</strong> VLM captioning where a local vision model is approved) over screenshots; recognized text re-enters the deterministic extractors; window-title heuristics map to form titles via the CKG.</li>
+<li><strong>LLM pass</strong> for what patterns can't do: symptom summarization, business-concept identification, disambiguation (&quot;the settlement screen&quot; → candidate forms), and reading tables out of pasted logs. The LLM here <em>proposes</em>; every proposal is tagged <code>Derived</code> with the source sentence, and CKG-resolution decides whether it's plausible.</li>
+<li><strong>Gate 1</strong> shows the merged result for human confirmation (skippable on the dial).</li>
+</ol>
+<p>Extraction output is a typed <code>TicketSignals</code> record — the sole input to retrieval — making stage 1 independently evaluable (see §55).</p>
+<h2>14. Form Explorer</h2>
+<p>Tree navigation: Form → Blocks → Items / Triggers / Program Units / Record Groups / LOVs / Canvases, backed by the parsed Forms XML. Selecting a node shows: properties (from XML), source (for triggers/program units) with syntax highlighting, <strong>outbound references</strong> (calls, table bindings via block base-table, LOV queries) and <strong>inbound references</strong> (&quot;called by / used by&quot;). A &quot;Where is this item validated?&quot; affordance lists all triggers whose scope touches the item — the single most common SME question. Every node has a stable artifact URL (deep-linkable from RCA citations) and a &quot;add to investigation&quot; action when opened in investigation context.</p>
+<h2>15. Source Explorer</h2>
+<p>A read-only code viewer over all indexed sources (form triggers/program units, PLL program units, package specs/bodies, procedures, functions, views, report queries) with: symbol-aware search (exact symbol, then lexical, then optional semantic), go-to-definition and find-references powered by the CKG edge table, snapshot switcher (view code as of any index snapshot — essential when investigating old tickets), and span-level permalinks (<code>artifact@snapshot:lines</code>) which are exactly what evidence citations resolve to. <strong>DESIGN DECISION:</strong> source is rendered from the indexed copy in the cell's store, never live from customer file shares — investigations must be reproducible against pinned snapshots.</p>
+<h2>16. Dependency Explorer</h2>
+<p>An interactive graph view seeded from any artifact or from an investigation's artifact set. Edges are typed and filterable: <code>contains</code> (form→block→item), <code>fires</code> (item→trigger), <code>calls</code> (trigger→PU→procedure→package), <code>reads</code>/<code>writes</code> (code→table/view/column where statically resolvable), <code>depends-on</code> (package→package, view→table). Controls: depth limiter (default 2), direction (upstream/downstream), edge-type toggles, and &quot;path finder&quot; (shortest typed paths between two nodes — e.g., form item → table). Every rendered edge carries provenance (&quot;resolved from line 212 of X&quot;) — the graph is a <em>view of evidence</em>, not a drawing. Rendering caps at a few hundred nodes with clustering beyond that; the full graph is never shown (it's useless).</p>
+<h2>17. Database Explorer</h2>
+<p>Backed by ingested Oracle catalog metadata (ALL_TABLES/ALL_TAB_COLUMNS/ALL_CONSTRAINTS/ALL_DEPENDENCIES/ALL_SOURCE etc. — see §34), <em>not</em> by live connections during browsing. Surfaces: table/view detail (columns, keys, FKs in/out, triggers), package browser (spec/body source, procedures/functions), <strong>cross-boundary references</strong> (&quot;which forms/report queries touch this table&quot; — the join between code-side and DB-side halves of the CKG), and dependency views from ALL_DEPENDENCIES. Live data access happens <em>only</em> through the Runtime Probe Console (§19/§36), never from the explorer.</p>
+<h2>18. RCA Workspace</h2>
+<p>Covered as the flagship screen in §11; its data model in §27. One addition: <strong>investigation chat</strong> — a side panel where the engineer can ask questions (&quot;why do you think the flag is stale?&quot;, &quot;show other callers of VALIDATE_LIMITS&quot;). The chat agent has the same CKG toolset and the same claim-verification pass; its answers can be pinned as evidence/annotations. This gives the &quot;chatbot over the codebase&quot; experience safely, inside the evidence regime.</p>
+<h2>19. Runtime Evidence (UX)</h2>
+<p>The Runtime Probe Console lists <strong>probe templates</strong> (see §36): parameterized, read-only, pre-approved query shapes such as &quot;fetch claim header by claim_no&quot;, &quot;show current value + last-updated of column X for key Y&quot;, &quot;explain plan for query Q&quot;, &quot;count rows matching predicate&quot;. An investigator (with <code>runtime.request</code>) picks a template — often pre-filled because the investigator agent proposed it against an Unresolved item — binds parameters, selects environment, and submits. Policy per environment decides: auto-run (DEV/TEST), or approval required (UAT/PROD → lands in Validator/Admin approval queue with full rendered SQL shown). Results render as tabular evidence, are hashed, timestamped, tagged <code>Runtime-confirmed</code>, and attach to the investigation. Every probe — proposed, approved, executed, denied — is in the audit log with the exact SQL text.</p>
+<h2>20. SME Review</h2>
+<p>Workflow states: <code>Draft → In Review (engineer) → Awaiting Validation → Validated | Returned | Rejected → Sealed</code>. The Validator's verdicts are per-finding and overall; a Returned RCA goes back to the engineer with required notes; validation seals the record (immutable core + append-only comments). Validated content feeds three downstream flows automatically: (1) golden-candidate queue, (2) knowledge-suggestion queue from rejections/amendments, (3) related-ticket index. <strong>DESIGN DECISION:</strong> SME validation is modeled as <em>ground truth</em> in the data model — the eval framework (§54–55) treats validated RCAs as labels, which is what makes the flywheel real.</p>
+<hr>
+<h2>21. Customer Onboarding</h2>
+<p>A wizard-driven, resumable checklist owned by the Customer Admin:</p>
+<ol>
+<li><strong>Cell provisioning</strong> (vendor-assisted): deploy the Tracer cell (containers) inside the customer network; license key; TLS; SSO/OIDC to the customer IdP.</li>
+<li><strong>Environment definition:</strong> create DEV/TEST/UAT/PROD entries; per-environment policy defaults (probe approval rules, automation dial).</li>
+<li><strong>Oracle connections:</strong> register TNS details + a <strong>read-only</strong> account per environment (privilege checklist provided: SELECT on catalog views + application schemas; the wizard runs a privilege self-test and <em>refuses</em> accounts holding DML/DDL privileges).</li>
+<li><strong>Artifact sources:</strong> file-share paths or the <strong>site agent</strong> (a small watcher that runs frmf2xml/rwconverter where the Forms tooling lives and ships XML to the cell). Per-path artifact-type mapping.</li>
+<li><strong>First index:</strong> run, then review the <strong>Index Health Report</strong> — parse success rate, artifact counts by type, unresolved-reference count, symbol-collision report. Onboarding does not proceed past a configurable coverage threshold without explicit acknowledgment (a half-indexed estate silently degrades RCA quality; make it visible).</li>
+<li><strong>Jira connection:</strong> base URL, service account/PAT (vault reference), project mapping, custom-field mapping (customers put policy numbers in custom fields), identifier regex pack (policy/claim number formats).</li>
+<li><strong>Knowledge base:</strong> select shipped PREMIA base-KB version; optionally import customer error-code registry (CSV/SQL) into the overlay.</li>
+<li><strong>Dry run:</strong> extraction + retrieval (no deep analysis) over 5–10 sample tickets; admin and an SME eyeball results; tune regexes/mappings.</li>
+<li><strong>Users &amp; go-live.</strong></li>
+</ol>
+<p>Per-customer configuration surface (the answer to &quot;what is configurable&quot;): connections &amp; secrets references, paths &amp; converters, identifier regex packs, Jira field mappings, terminology synonyms, KB overlay, automation dial, probe policies, retention windows, LLM endpoint &amp; model choice, indexing schedule, RBAC assignments.</p>
+<h2>22. Multi-Customer Architecture</h2>
+<p><strong>DESIGN DECISION (cornerstone): one deployment cell per customer.</strong> Each customer gets a complete, self-contained instance — app, workers, PostgreSQL, object store, optional local LLM — running in <em>their</em> network (their VMs, their private cloud account, or a vendor-managed dedicated enclave if they choose). There is no shared application database across customers.</p>
+<p>A thin optional <strong>vendor control plane</strong> handles: license issuance, signed release distribution, opt-in <em>content-free</em> telemetry (versions, job throughput, error rates, eval metric aggregates — never ticket text, code, or identifiers), and support tooling. Cells function fully with the control plane unreachable (air-gapped mode: licenses and updates by file transfer).</p>
+<p><strong>TRADE-OFF:</strong> N deployments to operate vs. one SaaS. Accepted because (a) the security requirement (&quot;source may not leave the environment&quot;) makes shared-infrastructure SaaS a non-starter for most insurers regardless of what we build; (b) cell isolation reduces the isolation-bug blast radius to zero across customers; (c) operational burden is contained by strict homogeneity — every cell runs the identical versioned compose/chart, config as data, upgrades scripted and eval-gated. <strong>FUTURE OPTION:</strong> a shared-control-plane multi-tenant SaaS edition for customers who accept it — the code already keys everything by customer/environment IDs (see §24), so this is a deployment-mode change, not a rewrite.</p>
+<h2>23. Multi-Environment Architecture</h2>
+<p>Environments are rows, not deployments: one cell hosts all of a customer's environments. Everything downstream is environment-scoped — connections, index snapshots, tickets (a Jira project maps to a default environment, overridable per ticket since a PROD ticket may need investigation against the UAT index), investigations, KB overlay entries (env-specific overrides allowed, e.g., a customization only in PROD), probe policies, and audit partitions. The environment switcher + PROD-tinted chrome carry this into the UX. Cross-environment <em>diffing</em> (&quot;this trigger differs between UAT and PROD snapshots&quot;) is a <strong>FUTURE OPTION</strong> with high SME value.</p>
+<h2>24. Tenant Isolation</h2>
+<p>Defense in depth, four layers:</p>
+<ol>
+<li><strong>Physical:</strong> per-customer cells (no shared compute/storage/DB across customers).</li>
+<li><strong>Schema discipline inside a cell:</strong> every tenant-scoped table carries <code>environment_id</code>; PostgreSQL <strong>row-level security</strong> policies enforce environment scoping at the database layer, so an application bug cannot leak across environments; all queries go through a repository layer that requires an environment context object (no context, no query — compile-time enforced).</li>
+<li><strong>Job &amp; storage scoping:</strong> every async job, object-store key prefix, and search index is environment-prefixed; workers validate the prefix against the job's context before touching anything.</li>
+<li><strong>LLM boundary:</strong> prompts are assembled only from evidence records already scoped by layers 1–3; the LLM gateway tags every call with customer/environment for audit and enforces the per-customer endpoint (a cell configured for local inference physically cannot call an external API — egress-blocked at the network policy level, verifiable on the admin egress page).</li>
+</ol>
+<p>Isolation tests are part of CI: a test suite that attempts cross-environment reads through every API surface and asserts zero rows.</p>
+<h2>25. PREMIA Knowledge Architecture</h2>
+<p>Three knowledge strata, deliberately separated because they have different owners, trust levels, and lifecycles:</p>
+<table>
+<thead>
+<tr>
+<th>Stratum</th>
+<th>Content</th>
+<th>Owner</th>
+<th>Trust</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Estate facts (CKG)</strong></td>
+<td>Parsed artifacts, symbols, edges, DB catalog</td>
+<td>Machine (deterministic)</td>
+<td>Ground truth for &quot;what the code is&quot;</td>
+</tr>
+<tr>
+<td><strong>Base PREMIA KB</strong></td>
+<td>Error-code registry, module map (which forms belong to Claims vs Policy vs Endorsement), common failure patterns/playbooks (&quot;ORA-201xx family = application-raised validation errors; check RAISE_APPLICATION_ERROR sites&quot;), PREMIA-version notes</td>
+<td>Vendor, versioned, shipped with releases</td>
+<td>Curated; every entry cites its basis</td>
+</tr>
+<tr>
+<td><strong>Customer overlay</strong></td>
+<td>Customer error codes, customization notes, terminology synonyms (&quot;marine desk&quot; → product code MRN), SME annotations, validated-RCA-derived patterns</td>
+<td>Customer SMEs (edit + suggestion queue)</td>
+<td>Authoritative for that customer; overrides base</td>
+</tr>
+</tbody>
+</table>
+<p>KB entries are structured records (type, keys, text, links to artifact types, citations), retrievable by the investigator agent through a KB tool. <strong>DESIGN DECISION:</strong> LLM-visible knowledge must be <em>retrieved and cited</em>, never baked into prompts as unattributed lore — a KB entry used in reasoning appears in the evidence ledger as <code>Derived (knowledge)</code> with its entry ID, keeping the &quot;validated PREMIA domain knowledge&quot; requirement inside the provenance regime. Suggestion pipeline: SME rejections/annotations → suggestion queue → SME approval → overlay entry (versioned, revertible).</p>
+<hr>
+<h2>26. AI/LLM Architecture</h2>
+<p><strong>Shape: a tool-using investigator agent over deterministic services — not RAG-into-one-prompt, not fine-tuning (initially).</strong></p>
+<p>Components:</p>
+<ul>
+<li><strong>LLM Gateway</strong> (single choke point): provider adapters (local vLLM/Ollama-served open-weights model; Anthropic/OpenAI/Azure endpoints where the customer permits), per-customer model config, token accounting, rate limits, prompt/response logging (into the cell's own store), redaction hooks, and hard egress rules. Everything AI goes through it; nothing else may call an LLM.</li>
+<li><strong>Task prompts, small and separated:</strong> extraction assistant, scoping assistant, investigator agent, RCA composer, chat assistant, (later) eval judge. Small single-purpose prompts are testable and swappable; one mega-agent is neither.</li>
+<li><strong>Investigator agent:</strong> runs a bounded loop (budget: max tool calls, max tokens, max wall time — all per-customer configurable) over a fixed toolset:
+<code>search_symbols</code>, <code>get_artifact_source(span)</code>, <code>get_dependencies(node, edge_types, depth)</code>, <code>find_paths(a, b)</code>, <code>get_db_object</code>, <code>find_error_raise_sites(code)</code>, <code>search_knowledge</code>, <code>list_ticket_evidence</code>, <code>propose_probe(template, params)</code>, <code>record_finding(claim, evidence_ids, class)</code>, <code>record_unresolved(question, suggested_probe)</code>.
+Every tool returns <strong>evidence records with IDs</strong>, and <code>record_finding</code> <em>requires</em> evidence IDs — the agent literally cannot state a sourceless finding into the ledger. Tool results are truncated/summarized deterministically to keep context bounded (§ Performance).</li>
+<li><strong>Model strategy:</strong> capability tiers — extraction/summarization can run on a smaller local model; investigation reasoning benefits from the strongest model the customer's policy allows. <strong>ASSUMPTION A2:</strong> some customers will mandate fully local inference; the product must be <em>useful</em> (not merely functional) on a strong open-weights model served locally — this is a product-viability requirement, so eval suites run per-model.</li>
+<li><strong>What LLMs are <em>not</em> used for:</strong> parsing, dependency edges, claim verification, RBAC, probe execution, audit — see §28.</li>
+</ul>
+<p><strong>Why agentic rather than single-shot RAG:</strong> the investigation is multi-hop by nature (symptom → form → trigger → package → table). Single-shot retrieval cannot know hop 3 before reading hop 2. A bounded agent that <em>navigates the CKG</em> mirrors how SMEs actually work, and the tool-call log doubles as an explainable trace. <strong>TRADE-OFF:</strong> agent loops cost more tokens and latency than one prompt; bounded budgets, deterministic pre-retrieval (which usually seeds the agent within 1–2 hops of the answer), and Gate 2 scoping contain this.</p>
+<h2>27. Evidence / Provenance Architecture</h2>
+<p>The core schema (simplified):</p>
+<pre><code>EvidenceRecord {
+  id, environment_id, investigation_id,
+  class: OBSERVED | DERIVED | HYPOTHESIS | UNRESOLVED | RUNTIME_CONFIRMED,
+  kind:  ticket_text | screenshot_region | source_span | ckg_edge |
+         db_metadata | kb_entry | probe_result | human_note,
+  ref:   { artifact_id, snapshot_id, span } | { probe_id } | { kb_id } | …,
+  content_hash, created_by (human|agent|system), created_at, immutable=true
+}
+Finding { id, claim_text, class, evidence_ids[], status(open/confirmed/rejected),
+          verdicts[] (per-reviewer), order_in_chain }
+</code></pre>
+<p>Class semantics (enforced, not stylistic):</p>
+<ul>
+<li><strong>Observed</strong> — exists verbatim in a trusted source: ticket text, screenshot OCR region, indexed source span, catalog metadata. Machine-checkable.</li>
+<li><strong>Derived</strong> — produced by a deterministic transformation of observed evidence (a resolved edge, a computed path, a KB match). Carries the derivation.</li>
+<li><strong>Runtime-confirmed</strong> — result of an executed probe. Highest class for state-of-the-world claims.</li>
+<li><strong>Hypothesis</strong> — any claim whose citations don't fully entail it, or agent inference beyond evidence. Never promoted except by new evidence or SME confirmation.</li>
+<li><strong>Unresolved</strong> — an explicit open question, with suggested next step.</li>
+</ul>
+<p><strong>Claim Verifier (deterministic stage):</strong> for every finding, (1) every cited evidence ID exists, is in-scope, and its content hash matches; (2) cited source spans still exist in the pinned snapshot; (3) entailment heuristics — cited spans must contain the symbols/error codes the claim names (symbol-level check, deterministic); (4) class consistency — a finding claiming runtime state must cite a probe result or be downgraded. Failures downgrade the finding to Hypothesis and flag it; the verifier's report is itself stored. <strong>TRADE-OFF:</strong> symbol-level entailment is shallow — it catches fabricated citations and misattributed spans, not subtle logical leaps; those remain for the human gates, which is exactly what the gates are for. <strong>FUTURE OPTION:</strong> a second-model entailment check as an additional (still advisory) verifier.</p>
+<p>Provenance is end-to-end: snapshot pinning + immutable evidence + append-after-seal gives full reproducibility (&quot;show me exactly what the system saw when it said this in March&quot;).</p>
+<h2>28. Deterministic vs AI Responsibilities</h2>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Deterministic</th>
+<th>LLM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Parsing Forms XML / PLL / PL/SQL / RDF</td>
+<td>✅</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Symbol &amp; edge extraction, CFG construction</td>
+<td>✅</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Identifier extraction (codes, numbers, known names)</td>
+<td>✅ (regex/dictionary/CKG match)</td>
+<td>assist on ambiguity</td>
+</tr>
+<tr>
+<td>OCR</td>
+<td>✅ engine</td>
+<td>optional VLM assist</td>
+</tr>
+<tr>
+<td>Symptom summarization, business concepts</td>
+<td></td>
+<td>✅ (tagged Derived)</td>
+</tr>
+<tr>
+<td>Candidate retrieval</td>
+<td>✅ hybrid ranker</td>
+<td>✅ query expansion only</td>
+</tr>
+<tr>
+<td>Investigation navigation (which hop next)</td>
+<td></td>
+<td>✅ via tools</td>
+</tr>
+<tr>
+<td>Facts the investigation uses</td>
+<td>✅ tools only return indexed truth</td>
+<td>✗ may not assert</td>
+</tr>
+<tr>
+<td>Causal narrative composition</td>
+<td></td>
+<td>✅ over verified findings</td>
+</tr>
+<tr>
+<td>Claim verification</td>
+<td>✅</td>
+<td>(future advisory 2nd model)</td>
+</tr>
+<tr>
+<td>Probe SQL</td>
+<td>✅ templates only</td>
+<td>may propose template+params only</td>
+</tr>
+<tr>
+<td>RBAC, isolation, audit, sealing</td>
+<td>✅</td>
+<td>✗ never</td>
+</tr>
+</tbody>
+</table>
+<p>Rule of thumb applied: <strong>LLMs choose and compose; deterministic code knows and enforces.</strong></p>
+<hr>
+<h2>29. Backend Architecture</h2>
+<p><strong>DESIGN DECISION: a modular monolith + worker pool, in one repository, deployed as two container roles (api/ui, worker) sharing PostgreSQL and an object store.</strong></p>
+<p>Internal modules (enforced boundaries — separate packages with explicit public interfaces; an architecture test forbids cross-module imports outside interfaces):</p>
+<pre><code>core/            identities, environments, RBAC, audit, config
+ticketing/       ticket mirror, sync, normalized Ticket model, connectors (Jira…)
+ingestion/       source acquisition, converters, parser pipelines (per artifact type)
+ckg/             graph schema, symbol table, edge queries, snapshots, path finder
+extraction/      ticket-signal extractors (regex/dict/OCR/LLM-assist)
+retrieval/       hybrid search &amp; ranking over CKG + KB + ticket history
+investigation/   pipeline orchestration, agent runtime, budgets, claim verifier
+evidence/        ledger, findings, review/validation workflow, sealing
+runtime/         probe templates, approval workflow, probe executor (isolated)
+knowledge/       base KB + overlay + suggestion queue
+evaluation/      golden records, replay harness, metrics
+llm/             gateway, provider adapters, prompt registry, accounting
+jobs/            queue, scheduling, retries (Postgres-backed)
+</code></pre>
+<p>Why not microservices: the workload is bursty-batch (indexing, investigations) + low-QPS interactive; there is no independent-scaling or independent-team pressure that pays microservices' tax (network failure modes, distributed tracing, N deploy pipelines) — and every customer's ops team would inherit that tax on-premise. The two genuinely separable concerns already are separated: <em>compute</em> (workers scale horizontally by count) and <em>probe execution</em> (runs in a separately confined runtime module/process because it holds DB credentials — the one place process isolation buys real security). <strong>FUTURE OPTION:</strong> the ingestion/parsing worker can be split out first if parse loads ever demand it; module boundaries make that a packaging change.</p>
+<p>API: REST + SSE (job progress, agent tool-log streaming). AuthN via OIDC to customer IdP; AuthZ in core.</p>
+<h2>30. Frontend Architecture</h2>
+<p>Single-page app (React/TypeScript), one app with route-level code-splitting per surface. State: server-cache library (TanStack-style) + SSE subscriptions for live progress; investigation views are snapshot-addressed so they render identically later. Design system with the evidence-class badge, artifact chip, source-span viewer, and graph canvas as core shared components (they appear on 8+ screens — consistency here <em>is</em> the trust UX). Graph rendering via a canvas/WebGL graph lib with node caps + clustering. Code viewer: Monaco-class read-only editor with span-anchor decorations. Accessibility and keyboard-first operation (support engineers live on keyboards; ⌘K omnisearch, j/k queue navigation).</p>
+<h2>31. Data Architecture</h2>
+<p><strong>PostgreSQL is the system of record for everything structured</strong>, per environment-scoped schemas:</p>
+<ul>
+<li>Relational core: users/roles, environments, connections, tickets mirror, investigations, findings, evidence, reviews, KB, golden records, audit (append-only table + hash chain), jobs.</li>
+<li><strong>CKG in Postgres:</strong> <code>artifact(id, env, snapshot, type, path, hash, meta jsonb)</code>, <code>symbol(id, artifact, kind, name, canonical_name)</code>, <code>edge(id, env, snapshot, src_symbol, dst_symbol, type, provenance_span)</code>. Traversals via recursive CTEs with depth caps; hot paths (k-hop neighborhoods of frequently investigated artifacts) optionally materialized.</li>
+<li>Full-text: Postgres FTS/trigram over source, tickets, KB. <strong>Vector embeddings: pgvector, optional per customer</strong> — used only as one ranker among several (see §33); the product must work without it (some customers won't run embedding models).</li>
+<li><strong>Object store</strong> (S3-compatible, e.g., MinIO in-cell): raw artifact files, converted XML, attachments, screenshots, probe result payloads, eval reports — content-addressed (hash) for dedup and integrity.</li>
+</ul>
+<p><strong>TRADE-OFF (no Neo4j):</strong> at 10⁴–10⁵ artifacts and roughly 10⁵–10⁶ edges per snapshot, recursive CTEs with proper indexes answer depth-≤4 typed traversals in milliseconds; a second database engine on-premise doubles the ops burden and splits transactional consistency (evidence must reference edges transactionally). Revisit only if graph analytics (centrality, similarity at scale) become product features — <strong>FUTURE OPTION</strong> behind the <code>ckg</code> module interface.</p>
+<h2>32. Storage Strategy</h2>
+<ul>
+<li><strong>Snapshots, not mutation:</strong> each index run produces a snapshot; unchanged artifacts (by content hash) are <em>shared</em> between snapshots (copy-on-write rows), so storage grows with churn, not with snapshot count. Retention policy per environment (e.g., keep all snapshots referenced by open/sealed investigations + last N).</li>
+<li>Attachments/probes: content-addressed blobs, retention per customer policy, legal-hold flag on sealed investigations.</li>
+<li>Backups: standard pg_dump/WAL + object-store replication, runbook shipped with the cell; <strong>the customer owns backups</strong> (their data, their keys).</li>
+<li>Encryption at rest (disk or pgcrypto for secrets-adjacent columns) and TLS everywhere in-cell.</li>
+</ul>
+<h2>33. Search / Retrieval Architecture</h2>
+<p>Candidate retrieval (pipeline stage between extraction and agent) is a <strong>deterministic hybrid ranker</strong> — this stage decides most of the product's accuracy, so it is evaluable and tunable, not agentic:</p>
+<ol>
+<li><strong>Exact signals first:</strong> extracted error codes → <code>find_error_raise_sites</code> (every RAISE_APPLICATION_ERROR / error-registry match in the CKG); extracted symbol names → direct CKG hits; form recognized from screenshot → that form's subtree.</li>
+<li><strong>Structural expansion:</strong> 1–2 hop typed neighborhoods of exact hits (a trigger's called packages; a table's writing procedures).</li>
+<li><strong>Lexical:</strong> FTS over source + KB with customer synonym packs.</li>
+<li><strong>Historical:</strong> artifacts implicated in validated RCAs of similar past tickets (similarity over signals, not embeddings-only).</li>
+<li><strong>Semantic (optional):</strong> pgvector similarity as an additional ranker.
+Scores fuse with per-signal weights (defaults shipped; tuned per customer against their golden set — this is what the eval harness optimizes). Output: a ranked, capped candidate set (default ≤ 25 artifacts) → Gate 2 → agent seed.</li>
+</ol>
+<p><strong>DESIGN DECISION:</strong> retrieval is <em>recall-oriented and cheap</em>; the agent is <em>precision-oriented and expensive</em>. Keeping them separate keeps both measurable (form-retrieval accuracy is literally stage-3 recall@k on golden tickets).</p>
+<h2>34. Artifact Processing Architecture</h2>
+<p>Per-artifact-type parser adapters behind one <code>ArtifactParser</code> interface (<code>accepts(type) → parse(blob) → {symbols, edges, spans, diagnostics}</code>):</p>
+<ul>
+<li><strong>Forms:</strong> FMB → XML via frmf2xml (site agent or customer-run recipe); XML parsed to form/block/item/trigger/PU structure; trigger &amp; PU bodies extracted as PL/SQL units and passed to the PL/SQL front end.</li>
+<li><strong>PL/SQL:</strong> grammar-based parser (ANTLR-class PL/SQL grammar) → AST → symbol defs/refs, call edges, static table/column references (SELECT/INSERT/UPDATE/DELETE targets, <code>%TYPE</code>/<code>%ROWTYPE</code>), RAISE_APPLICATION_ERROR sites with code literals, and per-unit <strong>control-flow graphs</strong> (see §35). Parse failures degrade gracefully: unparseable units still get lexical indexing + a diagnostics flag (never silently drop code — the health report shows coverage).</li>
+<li><strong>PLL:</strong> → PLD/XML conversion, then PL/SQL front end; library-attachment edges to forms.</li>
+<li><strong>Reports:</strong> RDF → XML; extract data-model queries (→ table references), triggers, and layout field bindings.</li>
+<li><strong>Database:</strong> catalog ingestion over the read-only connection — objects, columns, constraints/FKs, ALL_DEPENDENCIES (server-side dependency truth), and ALL_SOURCE for stored PL/SQL (parsed by the same front end). <strong>DESIGN DECISION:</strong> ALL_DEPENDENCIES edges and parser-derived edges are stored with distinct provenance and cross-checked; disagreements surface in the index health report (they usually indicate synonyms/dblinks or parse gaps).</li>
+<li><strong>Name resolution:</strong> a resolution pass links references to definitions using Oracle scoping rules (schema, synonyms table, package scope); unresolved references are kept as explicit <code>unresolved_ref</code> nodes (they are evidence of <em>something</em> — often the customization boundary).</li>
+</ul>
+<p>Adding an artifact type = adding one adapter (§46).</p>
+<h2>35. Dependency / CFG Architecture</h2>
+<ul>
+<li><strong>Dependency layer:</strong> the typed edge table (§31) with provenance spans; query API: neighborhoods, typed shortest paths, reachability with depth caps, inbound/outbound reference lists. This is the substrate for the Dependency Explorer, agent tools, and the claim verifier.</li>
+<li><strong>Control-flow layer:</strong> per PL/SQL unit, a CFG (basic blocks, branches, exception handlers, RAISE edges) computed at parse time and stored compactly. Primary product uses: (a) <strong>error-path tracing</strong> — from a RAISE/exception site, walk backward to the conditions guarding it (&quot;this error fires when <code>v_coins_flag = 'Y' AND v_limit &lt; v_amount</code>&quot;) — the single highest-value automated analysis in this domain; (b) rendering the path in the RCA chain; (c) feasibility hints (&quot;this branch requires X&quot;). <strong>Scope discipline:</strong> intra-procedural CFG + call-graph stitching only; whole-program dataflow/symbolic execution is deliberately out (undecidable-in-practice on a 10⁵-unit estate, and runtime probes answer the &quot;what is the actual value&quot; question far more cheaply). <strong>FUTURE OPTION:</strong> targeted inter-procedural constant/flag propagation for the specific &quot;which config flag guards this branch&quot; question.</li>
+</ul>
+<h2>36. Runtime Evidence Architecture</h2>
+<ul>
+<li><strong>Probe templates</strong> are code-reviewed, versioned, parameterized SQL shapes shipped with the product (+ customer-authored templates approved by Customer Admin + Validator). Parameters are strongly typed and bound (no string concatenation, ever).</li>
+<li><strong>Executor:</strong> a separate confined process holding the per-environment read-only credentials; enforces: allowlisted statement shape (parse-checked: single SELECT/EXPLAIN, no DML/DDL/PLSQL-block), row/byte caps, statement timeout, Oracle resource-limited profile on the account, session tagging (<code>MODULE=TRACER_PROBE</code>) for the customer's own DBA visibility.</li>
+<li><strong>Policy engine per environment:</strong> auto-run / single approval / dual approval; approver sees fully-rendered SQL + business justification (linked Unresolved item).</li>
+<li><strong>Guarantee stack for &quot;read-only&quot;:</strong> account privileges (no DML grants) → statement allowlist parse → template review → audit of exact text + result hash. Four independent layers; any one failing still leaves three.</li>
+<li>The agent can only <em>propose</em> (template_id, params) — proposals are data, not executions.</li>
+</ul>
+<h2>37. Jira Integration Architecture</h2>
+<p>The <code>ticketing/</code> module defines the normalized model (<code>Ticket</code>, <code>Comment</code>, <code>Attachment</code>, <code>ChangeEvent</code>, <code>TicketRef</code>) and a <code>TicketingConnector</code> port (<code>fetchUpdatedSince</code>, <code>fetchAttachment</code>, <code>postComment</code>, <code>capabilities()</code>). The Jira adapter implements it for Jira Cloud + Data Center (auth: PAT/OAuth per instance), handles rate limits with adaptive backoff, custom-field mapping declared in config, and idempotent sync via changelog cursors. Failure isolation: Jira downtime pauses sync; investigations proceed on the mirror. ServiceNow/AzureDevOps = new adapters only. Write scope of the service account should be commented-on-issues only — the wizard verifies and warns on over-privileged accounts (same philosophy as the DB account check).</p>
+<hr>
+<h2>38. Security Architecture</h2>
+<p>Threat model headliners and their answers:</p>
+<table>
+<thead>
+<tr>
+<th>Threat</th>
+<th>Control</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source/data exfiltration to vendor or third parties</td>
+<td>Per-customer cell in customer network; egress allowlist (default: none beyond configured Jira/Oracle/LLM endpoints); admin <strong>Egress page</strong> showing every configured external endpoint; air-gap mode</td>
+</tr>
+<tr>
+<td>Cross-environment leakage</td>
+<td>RLS + context-required repositories + scoped storage keys + CI isolation tests (§24)</td>
+</tr>
+<tr>
+<td>Prompt injection via ticket content/attachments</td>
+<td>Ticket text is <em>data</em> in prompts, never instructions; tool allowlist is fixed; agent cannot execute probes or writes; claim verifier catches fabricated citations; write-backs human-gated</td>
+</tr>
+<tr>
+<td>Credential theft</td>
+<td>Secrets never in app DB (references only, §39); probe executor process isolation; short-lived session tokens</td>
+</tr>
+<tr>
+<td>Malicious/compromised insider (vendor)</td>
+<td>Vendor has no standing access to cells; break-glass is customer-granted, time-boxed, fully audited</td>
+</tr>
+<tr>
+<td>Over-privileged integration accounts</td>
+<td>Wizard privilege self-tests refuse/warn (DB and Jira)</td>
+</tr>
+<tr>
+<td>Tampering with investigation record</td>
+<td>Immutable evidence, sealed investigations, hash-chained audit log</td>
+</tr>
+</tbody>
+</table>
+<p>Plus the standard enterprise baseline: OIDC SSO + MFA via customer IdP, TLS 1.2+ everywhere, dependency scanning + signed releases (supply chain), session policies, CSP-hardened frontend, attachment type/size allowlists and malware scanning hook.</p>
+<h2>39. Secrets Management</h2>
+<ul>
+<li><strong>Principle: the product stores references, not secrets.</strong> First-class integration with the customer's vault (HashiCorp Vault, CyberArk, AWS/Azure/GCP secret managers) via a <code>SecretProvider</code> port; connections store <code>vault://path</code> references resolved at use-time with short-lived leases.</li>
+<li>Fallback for customers without a vault: an in-cell encrypted secret store (envelope encryption; master key from KMS/HSM or sealed keyfile under customer control) — clearly labeled as the lesser option in onboarding.</li>
+<li>Scope of secrets: Oracle accounts (per environment), Jira credentials, LLM API keys, SSO client secrets, site-agent tokens. Rotation: re-resolve on lease expiry; connection health checks surface rotation breakage immediately.</li>
+<li>Secrets never appear in logs, prompts, evidence, or exports (redaction filters at the logging and LLM-gateway layers, tested).</li>
+</ul>
+<h2>40. RBAC</h2>
+<p>Model: <strong>role + capability flags + environment scope grants.</strong> A user holds roles (§4) per environment set (e.g., Investigator in DEV/TEST/UAT, Viewer in PROD). Sensitive capabilities are explicit grants layered on roles: <code>source.view</code>, <code>db.explore</code>, <code>runtime.request</code>, <code>runtime.approve</code>, <code>kb.edit</code>, <code>golden.manage</code>, <code>audit.read</code>, <code>jira.writeback</code>. Enforcement: single policy module in <code>core/</code> consulted by API layer <em>and</em> repository layer (defense in depth); UI hides what the API would deny (never the only line of defense). Admin/content separation per §4. All permission changes are audited events. <strong>DESIGN DECISION:</strong> no custom per-object ACLs in v1 (investigations visible to all Investigators of that environment) — per-investigation confidentiality is a <strong>FUTURE OPTION</strong>; premature object ACLs are the classic enterprise-tool complexity trap.</p>
+<h2>41. Auditability</h2>
+<p>Append-only, hash-chained <code>audit_event</code> stream per environment: who/what/when/context for — logins &amp; permission changes; connection &amp; secret-reference changes; index runs &amp; snapshot creation; investigation lifecycle transitions; every LLM call (prompt hash, model, tokens — full text retained in-cell per retention policy); every probe (proposed/approved/denied/executed + exact SQL + result hash); Jira write-backs (full posted text); KB changes; exports; break-glass access. Audit Explorer UI + filtered CSV/JSON export + optional syslog/SIEM forwarder (customers will ask for Splunk/QRadar feeds). Sealed investigations + pinned snapshots + immutable evidence give <em>investigative</em> auditability: any past RCA is fully reconstructible.</p>
+<h2>42. Observability</h2>
+<p>In-cell, self-contained (no SaaS dependency): structured logs (correlation IDs across API→job→agent→tool call), metrics (Prometheus format: queue depths, job latencies by stage, parse coverage, LLM tokens/latency/cost per stage, probe latencies, sync lag), traces for the pipeline (each investigation is a trace; each tool call a span — this triples as the user-visible tool log), and an Ops Dashboard for Platform/Customer admins. Health checks per dependency (DB, object store, Jira, Oracle, LLM endpoint) drive the connection-status UI. Opt-in content-free telemetry to the vendor control plane (§22). Alert rules shipped: sync stalled, index failure rate, verifier downgrade spike (a <em>quality</em> alarm — a jump in downgraded claims means model or prompt drift), queue saturation.</p>
+<h2>43. Scalability</h2>
+<p>Envelope targets (per cell): 10⁵ artifacts, 10⁶–10⁷ edges across retained snapshots, 10⁵ historical tickets, 50 concurrent users, 20 concurrent investigations, full re-index of a large estate overnight and incremental re-index in minutes.</p>
+<p>How the shape scales: interactive traffic is trivial (low QPS, read-heavy, indexed); the real load is <strong>batch</strong> — parsing and agent runs — which scales by adding worker containers (stateless, queue-fed; parse jobs partition by artifact, agent jobs by investigation). PostgreSQL sizing at this envelope is a single well-provisioned instance (+streaming replica for HA); the CKG edge table at 10⁷ rows with composite indexes is unremarkable. LLM throughput is the true bottleneck under concurrency → the gateway queues with per-stage priorities (interactive chat &gt; investigation &gt; eval batch) and the ops dashboard makes LLM saturation visible so the customer can size inference hardware. Scaling <em>customers</em> = adding cells (linear, no shared bottleneck). What deliberately does <strong>not</strong> scale in v1: cross-customer anything.</p>
+<h2>44. Modularity</h2>
+<p>Module map in §29; the rules that keep it honest: each module owns its tables (no cross-module SQL); communication through interfaces + domain events on the job bus (e.g., <code>SnapshotCompleted</code>, <code>InvestigationValidated</code> — consumed by evaluation and knowledge modules without coupling); ports at every external boundary (§46); an architecture-conformance test suite (import rules, table ownership) in CI. The practical payoff enumerated by the brief: swapping Jira→ServiceNow, LLM provider, DB engine target (Oracle→ others for non-PREMIA estates — <strong>FUTURE OPTION</strong>), artifact types, PREMIA versions (a KB + parser-profile concern, not a code fork), knowledge sources, and probe providers are all single-adapter changes.</p>
+<h2>45. SOLID Principles</h2>
+<p>Applied where they earn their keep, concretely:</p>
+<ul>
+<li><strong>S:</strong> parser ≠ indexer ≠ retriever ≠ agent ≠ verifier ≠ composer — each stage one reason to change (a new PL/SQL construct touches the parser only; a new evidence class touches evidence + verifier only).</li>
+<li><strong>O:</strong> new artifact types, connectors, LLM providers, probe templates, extractors, and rankers are <em>additive registrations</em> against stable interfaces — no core edits.</li>
+<li><strong>L:</strong> connector/provider contracts specified with capability descriptors (<code>capabilities()</code>) so a lesser implementation degrades declared features instead of violating expectations (e.g., a ticketing adapter without changelogs falls back to full-diff sync).</li>
+<li><strong>I:</strong> narrow ports per concern — the agent's toolset interface is separate from the explorer query interface even where they share implementation, so agent capabilities are governable independently.</li>
+<li><strong>D:</strong> <code>investigation/</code> (the RCA engine) depends only on ports: <code>TicketSource</code>, <code>GraphQuery</code>, <code>SourceStore</code>, <code>Knowledge</code>, <code>LLM</code>, <code>ProbeProposer</code>, <code>EvidenceSink</code>. It compiles and tests with all of them faked — which is precisely the brief's &quot;don't couple the RCA engine to external systems,&quot; made mechanical.</li>
+</ul>
+<h2>46. Plugin / Adapter Strategy</h2>
+<p>Extension points (all in-process plugins — versioned interfaces + registry; out-of-process plugin sandboxing is a <strong>FUTURE OPTION</strong>, unneeded while all plugins are vendor/customer-admin-installed):</p>
+<table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Ships with</th>
+<th>Later</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TicketingConnector</code></td>
+<td>Jira Cloud + DC</td>
+<td>ServiceNow, ADO, email intake</td>
+</tr>
+<tr>
+<td><code>ArtifactParser</code></td>
+<td>FormsXML, PL/SQL, PLL, RDF-XML, OracleCatalog</td>
+<td>Custom config formats, APEX</td>
+</tr>
+<tr>
+<td><code>LLMProvider</code></td>
+<td>vLLM/OpenAI-compat local, Anthropic, Azure OpenAI</td>
+<td>others</td>
+</tr>
+<tr>
+<td><code>SecretProvider</code></td>
+<td>Vault, AWS/Azure/GCP, in-cell store</td>
+<td>CyberArk</td>
+</tr>
+<tr>
+<td><code>ProbeExecutor</code></td>
+<td>Oracle read-only SQL</td>
+<td>AWR/ASH reader, log fetcher, REST health probes</td>
+</tr>
+<tr>
+<td><code>KnowledgeSource</code></td>
+<td>Base KB + overlay</td>
+<td>Confluence importer, doc ingestion</td>
+</tr>
+<tr>
+<td><code>Extractor</code></td>
+<td>regex/dict/OCR/LLM extractors</td>
+<td>customer-specific extractors</td>
+</tr>
+<tr>
+<td><code>Ranker</code></td>
+<td>exact/structural/lexical/history/vector</td>
+<td>learned ranker</td>
+</tr>
+</tbody>
+</table>
+<p>Config-as-data per customer selects and parameterizes plugins; the eval harness runs per plugin combination so substitutions are measurable, not vibes.</p>
+<h2>47. Async Processing</h2>
+<p>Everything that can exceed ~2 s is a job: ticket sync, OCR, extraction, indexing (per-artifact fan-out), retrieval+agent investigations, probe execution, eval runs, exports. <strong>DESIGN DECISION: PostgreSQL-backed queue</strong> (<code>SELECT … FOR UPDATE SKIP LOCKED</code>) rather than Kafka/RabbitMQ — at hundreds-to-thousands of jobs/hour, Postgres queues are proven, transactional with the domain data (job + state change commit atomically — a real correctness win), and zero extra ops for on-premise customers. Job model: priorities, per-type concurrency limits, retries with backoff + dead-letter state surfaced in ops UI, idempotency keys, cancellation (agent loops check a cancel flag between tool calls), progress events over SSE. <strong>TRADE-OFF:</strong> a Postgres queue tops out far below Kafka — irrelevant at this envelope; the <code>jobs/</code> port allows a broker swap if an envelope-breaking use ever appears.</p>
+<h2>48. Incremental Processing</h2>
+<ul>
+<li><strong>Indexing:</strong> content-hash diffing per artifact file → only changed artifacts re-parse; edges re-resolved for changed units + their direct dependents (bounded ripple); snapshots share unchanged rows (§32). Site agent watches paths and triggers deltas; scheduled full-verify pass weekly catches drift.</li>
+<li><strong>DB catalog:</strong> <code>LAST_DDL_TIME</code>-driven delta pulls.</li>
+<li><strong>Ticket sync:</strong> cursor-based (§37). Extraction re-runs only on changed tickets.</li>
+<li><strong>Retrieval indexes</strong> (FTS/vector): updated per changed artifact, not rebuilt.</li>
+<li><strong>Investigations are never silently re-run</strong> on new snapshots — staleness is <em>shown</em> (&quot;snapshot 42 investigated; current is 45 — re-investigate?&quot;), preserving reproducibility while inviting refresh.</li>
+</ul>
+<h2>49. Versioning</h2>
+<p>Everything user-meaningful is versioned: index snapshots (the backbone); base KB (semver, shipped per release, per-PREMIA-version profiles); customer overlay entries (row-versioned, revertible); prompts and agent policies (prompt registry with versions — an RCA records which prompt/model versions produced it, enabling honest before/after eval); probe templates; plugins and their interface versions; the product itself (single-artifact releases, DB migrations forward-compatible one version for rollback). An investigation is thus a fully pinned tuple: (snapshot, KB versions, prompt versions, model, plugin set) — the precondition for both audit and evaluation.</p>
+<hr>
+<h2>50. Deployment Architecture</h2>
+<p>A cell = one docker-compose (or Helm chart for customers who insist on their K8s) with services: <code>app</code> (API+UI), <code>worker</code> (×N), <code>probe-executor</code> (confined), <code>postgres</code>, <code>minio</code> (object store), optional <code>inference</code> (vLLM) and <code>site-agent</code> (deployed separately near the Forms tooling). Sizing profiles shipped: S (evaluation, 1 VM), M (typical, 2–3 VMs, ~64 GB + optional GPU box for local inference), L (large estate/users). Upgrades: pull signed images (or load from file in air-gap), run migrations, run the customer's eval smoke set, flip. Vendor control plane (optional, outbound-only from cell): license, update channel, content-free telemetry.</p>
+<h2>51. On-Premise Deployment</h2>
+<p>On-premise is the <em>primary</em> mode, not a port: no hard external dependencies (queue=Postgres, store=MinIO, metrics=Prometheus-local, LLM=local option), air-gap support (file-based license/updates/KB imports), customer-controlled TLS/PKI and IdP, resource-capped defaults, and a printed-quality runbook (backup/restore, DR, health triage) because the operator is the customer's IT, not the vendor's SREs. The design constraint that most shaped the architecture — &quot;assume the operator is a competent enterprise IT team with no interest in this product&quot; — is why the moving-part count is minimized throughout.</p>
+<h2>52. Failure Handling</h2>
+<p>Failure domains and behavior:</p>
+<ul>
+<li><strong>Jira unreachable:</strong> sync pauses with visible lag banner; everything else proceeds on the mirror.</li>
+<li><strong>Oracle unreachable:</strong> catalog refresh + probes degrade; investigations proceed on last catalog snapshot with a staleness badge on DB evidence.</li>
+<li><strong>LLM endpoint down/slow:</strong> gateway retries/fails over per config; investigations park in <code>Waiting (LLM)</code> state, resumable — never lost; deterministic surfaces (explorers, search) unaffected — the product degrades to a <em>very good code navigator</em>, which is deliberate.</li>
+<li><strong>Parser failure on an artifact:</strong> per-artifact diagnostic, lexical-only fallback, coverage report — never aborts the snapshot.</li>
+<li><strong>Agent failure/budget exhaustion:</strong> partial findings + Unresolved items are still delivered with an explicit &quot;investigation incomplete&quot; banner (partial evidence is valuable; silent failure is not).</li>
+<li><strong>Worker crash mid-job:</strong> lease timeout → retry from checkpoint (agent checkpoints after each tool call).</li>
+<li><strong>Verifier downgrades everything:</strong> the RCA is presented as hypotheses-only with a quality warning — the honest outcome.</li>
+<li><strong>Probe timeout/row-cap:</strong> result marked truncated; never auto-retried against PROD.</li>
+</ul>
+<h2>53. Test Strategy</h2>
+<ul>
+<li><strong>Parser tests:</strong> golden-file corpus per artifact type (real anonymized FMB-XML/PLL/RDF samples + synthetic PL/SQL grammar coverage); differential tests vs. ALL_DEPENDENCIES for edge extraction.</li>
+<li><strong>CKG/query tests:</strong> property-based traversal tests (path symmetry, depth caps), snapshot-sharing correctness.</li>
+<li><strong>Isolation tests:</strong> the cross-environment attack suite (§24) — release-blocking.</li>
+<li><strong>Verifier tests:</strong> adversarial fixtures — fabricated citations, hash mismatches, class violations — must all downgrade.</li>
+<li><strong>Agent tests:</strong> recorded-LLM (cassette) tests for tool-loop mechanics; budget/cancel/checkpoint behavior; plus live-model eval (below) as the semantic test.</li>
+<li><strong>Contract tests</strong> per port (every <code>TicketingConnector</code> etc. runs one shared conformance suite).</li>
+<li><strong>E2E:</strong> dockerized synthetic estate (&quot;mini-PREMIA&quot;: ~50 forms, ~200 packages, seeded bugs) + mocked Jira → full pipeline through validation.</li>
+<li><strong>Security tests:</strong> RBAC matrix sweep, probe allowlist fuzzing (DML/DDL/injection attempts must be rejected at parse), secret-redaction tests.</li>
+<li><strong>Performance tests:</strong> index throughput on synthetic 10⁵-artifact estates; traversal latency SLOs.</li>
+</ul>
+<h2>54. Golden Dataset</h2>
+<p>A golden record = a <strong>sealed, SME-validated investigation</strong> promoted by an Eval user, containing: the frozen ticket (text, comments, attachments), pinned snapshot reference, expected artifacts (form/block/item/trigger/packages/db objects — extracted from validated findings, SME-editable), expected failure path, validated RCA text, resolution, and validation metadata. Sources: (1) the natural flywheel — every validated investigation is a candidate (one click to promote, PII-review step included); (2) backfill mode during onboarding — SMEs replay historical solved tickets through the pipeline and label results, which doubles as customer acceptance testing; (3) the synthetic mini-PREMIA set shipped with the product for vendor-side regression. Golden records are per-customer and never leave the cell; the vendor sees only aggregate metrics (opt-in). Storage: first-class tables in <code>evaluation/</code>, snapshot-pinned so replays are exact.</p>
+<h2>55. Evaluation Metrics</h2>
+<p>Stage-wise, because the pipeline is stage-wise (each stage independently replayable against golden records):</p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Metrics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Extraction</td>
+<td>identifier precision/recall by type (error code, claim no., form name…); OCR field accuracy</td>
+</tr>
+<tr>
+<td>Retrieval</td>
+<td>recall@k and MRR per artifact class — <em>form / item / trigger / package / db-object retrieval accuracy</em> map here</td>
+</tr>
+<tr>
+<td>Investigation</td>
+<td>correct-failure-path rate; findings precision vs. expected artifacts; tool-call efficiency (calls per confirmed finding)</td>
+</tr>
+<tr>
+<td>Verification/faithfulness</td>
+<td><strong>unsupported-claim rate</strong> (findings downgraded by verifier ÷ findings emitted) — the headline safety metric; citation-validity rate</td>
+</tr>
+<tr>
+<td>RCA</td>
+<td>RCA correctness (SME-judged match to known RCA: exact / partially / wrong); hypothesis calibration (fraction of hypotheses later confirmed)</td>
+</tr>
+<tr>
+<td>Runtime</td>
+<td>probe-confirmation accuracy (probe outcomes vs. expectations on goldens where applicable)</td>
+</tr>
+<tr>
+<td>End-to-end</td>
+<td>latency P50/P95 per stage and total; cost (tokens) per investigation; human-effort proxy (edits per RCA, validation minutes)</td>
+</tr>
+</tbody>
+</table>
+<p>Operational use: eval runs execute per release candidate per customer cell (their goldens, their model, their config) and gate upgrades; trend dashboards expose drift; ranker weights (§33) are tuned against retrieval metrics. <strong>FUTURE OPTION:</strong> an LLM judge for RCA-match scoring to reduce SME judging load — always advisory, never ground truth.</p>
+<hr>
+<h2>56. MVP Definition</h2>
+<p>Scope discipline: the MVP must complete Journey 1 end-to-end for one design-partner customer, with the evidence regime fully present (it is the identity of the product, not a v2 feature).</p>
+<p><strong>In (MVP):</strong> per-customer cell deployment (compose); multiple environments per customer; Jira DC/Cloud connector (read + comment write-back); ingestion of Forms-XML + PL/SQL (packages/procedures/functions/triggers/PU) + Oracle catalog; CKG + snapshots + incremental hashing; deterministic extraction + OCR + LLM assist; hybrid retrieval (exact/structural/lexical/history — vector excluded); investigator agent with the fixed toolset + budgets; claim verifier; RCA workspace + evidence ledger + validation workflow + sealing; Form/Source/Dependency/DB explorers (read); RBAC (6 roles + flags), audit log, vault-reference secrets; onboarding wizard; golden-record promotion + stage-wise eval harness + mini-PREMIA regression set; ops dashboard.</p>
+<p><strong>Out (explicitly):</strong> runtime probes (stubbed as &quot;suggested manual query&quot; text in MVP — the approval/executor machinery follows in the first post-MVP release), PLL/RDF parsers (lexical-only fallback in MVP), vector search, investigation chat, cross-snapshot diffing, ServiceNow, SaaS mode, learned ranker, VLM screenshot understanding.</p>
+<p><strong>MVP success criteria (design partner):</strong> ≥80% form-retrieval recall@10 and ≥70% package/db-object recall@10 on a 30-ticket backfilled golden set; unsupported-claim rate &lt;5% pre-validation and 0 in validated output; median assisted investigation time ≤ 50% of the customer's historical baseline on comparable tickets; SME validation time ≤ 15 min median.</p>
+<h2>57. Post-MVP Roadmap</h2>
+<ul>
+<li><strong>R2 (hardening + runtime):</strong> probe templates + executor + approval policies; PLL + RDF parsers; investigation chat; SIEM forwarding; Helm packaging.</li>
+<li><strong>R3 (retrieval + knowledge):</strong> optional pgvector ranker; KB suggestion pipeline UX; cross-snapshot diff explorer; related-ticket surfacing v2; learned ranker weights from goldens.</li>
+<li><strong>R4 (breadth):</strong> ServiceNow connector; multi-model tiering in gateway; eval LLM-judge (advisory); backfill tooling at scale; reporting/dashboard pack for managers.</li>
+<li><strong>R5 (depth):</strong> targeted inter-procedural flag propagation (§35); AWR/ASH probe provider; environment-diff-aware RCA (&quot;works in UAT, fails in PROD&quot; comparative mode).</li>
+</ul>
+<h2>58. Future Extensions</h2>
+<p>Fix-suggestion drafts (patch <em>proposals</em> with the same evidence regime — never auto-applied); proactive mode (watch incoming Jira, pre-run extraction+retrieval so tickets arrive pre-scaffolded); cross-customer <em>pattern</em> KB (vendor-curated, abstracted, opt-in contribution with review — never raw customer data); coverage analytics (&quot;which modules generate most tickets&quot;); non-PREMIA Oracle-Forms estates (the architecture is Forms-generic; PREMIA specificity lives in the KB); SaaS edition (§22); APEX/ADF artifact parsers for customers mid-migration; training mode (junior engineers replay sealed investigations as guided walkthroughs — the tool-call log becomes a teaching artifact).</p>
+<h2>59. Architecture Trade-offs (consolidated)</h2>
+<ol>
+<li><strong>Per-customer cells vs. multi-tenant SaaS.</strong> Chose cells. Pay: N deployments, slower fleet-wide iteration, harder usage insight. Get: structural data isolation (the requirement that dominates), sellability to insurers, zero cross-tenant blast radius. Mitigation: homogeneous automated cells + content-free telemetry. Reversible: yes (SaaS as a future mode), because tenancy keys exist throughout.</li>
+<li><strong>Modular monolith vs. microservices.</strong> Chose monolith + workers. Pay: single-runtime blast radius, discipline needed to keep boundaries. Get: on-prem operability by non-experts, transactional simplicity (evidence+jobs+audit in one DB), 1 pipeline. Mitigation: enforced module boundaries + the one real isolation need (probe executor) split out. Reversible: per-module, later.</li>
+<li><strong>Postgres-as-graph vs. Neo4j.</strong> Chose Postgres. Pay: no native graph algorithms; recursive CTEs need care. Get: one database to operate/back-up/secure, transactional evidence↔edge integrity. Reversible behind <code>ckg/</code> port.</li>
+<li><strong>Postgres job queue vs. broker.</strong> Chose Postgres. Pay: throughput ceiling. Get: atomic job+state commits, zero extra ops. Reversible behind <code>jobs/</code> port.</li>
+<li><strong>Agentic investigation vs. single-shot RAG.</strong> Chose bounded agent. Pay: tokens, latency, loop-engineering. Get: multi-hop correctness, explainable trace, natural probe proposals. Mitigation: deterministic pre-retrieval seeds it; budgets cap it.</li>
+<li><strong>Deterministic verifier vs. trusting the model.</strong> Chose verifier. Pay: engineering + shallow-entailment limits. Get: mechanical enforcement of the no-invention requirement; the headline trust metric becomes measurable.</li>
+<li><strong>Checkpointed workflow vs. full automation.</strong> Chose human gates with a dial. Pay: added interaction cost on easy tickets. Get: trust, accuracy, and training-data quality; the dial lets mature customers earn automation.</li>
+<li><strong>Local-first LLM support vs. best-API-only.</strong> Chose both via gateway, with local as a first-class citizen. Pay: quality variance across models, per-model eval burden. Get: the deals where data cannot leave; honest per-model metrics.</li>
+<li><strong>Index-time analysis vs. query-time analysis.</strong> Chose index-time (CKG) with query-time depth only in the agent. Pay: storage + freshness machinery (snapshots, incremental). Get: fast investigations, reproducibility, bounded AI context.</li>
+<li><strong>Six roles vs. ten.</strong> Chose collapse+flags. Pay: occasional mapping conversations with customers. Get: administrable RBAC that customers actually configure correctly.</li>
+</ol>
+<h2>60. Architecture Decision Records</h2>
+<p><strong>ADR-01 — Per-customer deployment cell.</strong> <em>Status: Proposed.</em> Context: source/DB/Jira content must not leave customer environments; insurers audit vendors hard. Decision: single-tenant cells in customer networks; optional content-free control plane. Options: multi-tenant SaaS (rejected: unsellable to target segment, isolation-bug risk), hybrid data-plane/control-plane split with vendor-hosted control (kept as the telemetry-only variant). Consequences: fleet ops automation becomes a product deliverable; SaaS remains possible later.</p>
+<p><strong>ADR-02 — Modular monolith + async workers on Postgres queue.</strong> <em>Status: Proposed.</em> Context: on-prem operators; batch-heavy load; small vendor team. Decision: one app + worker role; enforced module boundaries; Postgres <code>SKIP LOCKED</code> queue. Options: microservices+K8s+Kafka (rejected: ops tax exported to customers, no scaling need), serverless (rejected: on-prem). Consequences: simple DR/runbooks; must police boundaries with CI conformance tests; broker/module extraction paths reserved.</p>
+<p><strong>ADR-03 — Deterministic Code Knowledge Graph in PostgreSQL as sole AI-visible truth.</strong> <em>Status: Proposed.</em> Context: no-invention requirement; multi-hop domain; huge estates. Decision: parse-time symbols/edges/CFG with provenance; LLM accesses only via tools; Neo4j rejected (ops cost, transactional split). Consequences: parser quality is the product's foundation (invest accordingly); graph-analytics features would force revisiting.</p>
+<p><strong>ADR-04 — Typed evidence ledger + deterministic claim verifier.</strong> <em>Status: Proposed.</em> Context: distinguish Observed/Derived/Hypothesis/Unresolved/Runtime-confirmed; enforce citations. Decision: immutable evidence records; findings require evidence IDs; verifier downgrades unverifiable claims; renderer refuses uncited confidence. Options: prompt-level instructions only (rejected: unenforceable), second-LLM critic as primary control (rejected as primary: unfalsifiable; kept as future advisory). Consequences: some verbose bookkeeping; the product's core differentiator becomes testable.</p>
+<p><strong>ADR-05 — Checkpointed pipeline with per-customer automation dial.</strong> <em>Status: Proposed.</em> Context: wrong-RCA cost asymmetry; trust building; golden-data quality. Decision: Gates at extraction, scoping, review/validation; dial Assisted/Checkpointed/Autonomous-draft. Consequences: slightly slower easy tickets; far better hard-ticket accuracy and label quality.</p>
+<p><strong>ADR-06 — Hybrid deterministic retrieval separated from the agent.</strong> <em>Status: Proposed.</em> Context: retrieval decides accuracy; must be measurable/tunable per customer. Decision: exact→structural→lexical→history(→optional vector) fused ranker feeding a capped candidate set. Consequences: retrieval metrics map 1:1 to the brief's accuracy metrics; vector infra optional.</p>
+<p><strong>ADR-07 — Probe templates + confined executor for runtime verification.</strong> <em>Status: Proposed.</em> Context: read-only guarantee against production Oracle. Decision: reviewed parameterized templates; separate credential-holding process; statement-parse allowlist; per-environment approval policy; agent proposes only. Options: free-form agent SQL behind a read-only account (rejected: single-layer guarantee, injection surface, unauditable intent). Consequences: template library curation becomes ongoing product work; probes are slower but defensible to any CISO.</p>
+<p><strong>ADR-08 — LLM Gateway with local-first provider strategy.</strong> <em>Status: Proposed.</em> Context: data-boundary variance across customers; model churn. Decision: single gateway choke point, provider adapters, per-customer model config, egress enforcement, full in-cell logging, per-model eval. Consequences: provider swaps are config; quality variance is surfaced honestly by eval rather than hidden.</p>
+<p><strong>ADR-09 — Snapshot-pinned investigations with incremental indexing.</strong> <em>Status: Proposed.</em> Context: continuously changing estates; audit/reproducibility; eval replay. Decision: content-hash incremental snapshots with row sharing; investigations pin (snapshot, KB, prompt, model) tuples; staleness surfaced, never silently refreshed. Consequences: storage/retention machinery; exact reproducibility of every sealed RCA.</p>
+<p><strong>ADR-10 — Validation-driven golden flywheel.</strong> <em>Status: Proposed.</em> Context: eventual golden dataset requirement; scarce SME time. Decision: sealed validated investigations promote to golden records; backfill mode doubles as acceptance testing; stage-wise replay harness gates releases per cell. Consequences: evaluation is a lived process, not a project; SME verdicts must be captured with structure from day one (they are).</p>
+<hr>
+<h2>Closing note on independence</h2>
+<p>Nothing above assumes any prior POC architecture. Where the brief's implied design was challenged, the challenge and reasoning are recorded (§2.4, §7, §59). The three bets most worth debating when comparing against the alternative proposal are: <strong>cells over SaaS (ADR-01), the deterministic CKG + verifier as the trust mechanism (ADR-03/04), and the checkpointed-agent workflow over full automation (ADR-05)</strong> — these determine the product's character; most other choices are reversible behind ports.</p>
+
+</body></html>
